@@ -1,6 +1,7 @@
 import os
 import shlex
 import shutil
+from builtins import print as builtins_print
 from pathlib import Path
 from typing import Annotated
 
@@ -33,7 +34,7 @@ def signature(
 ) -> None:
     """Print the signature of a tool."""
     definition = ToolDefinition.from_yaml(DEFINITIONS_DIR / name / "task.yaml")
-    print(definition.python_signature)
+    builtins_print(definition.python_signature)
 
 
 @app.command()
