@@ -1,4 +1,4 @@
-# This image is published to ghcr.io/georg-wolflein/toolarena-runtime
+# This image is published to ghcr.io/katherlab/toolarena-runtime
 
 # The base image is either ubuntu:24.04 (for CPU) or nvidia/cuda:12.8.1-cudnn-devel-ubuntu24.04 (for GPU)
 ARG BASE=ubuntu:24.04

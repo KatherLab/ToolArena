@@ -88,8 +88,8 @@ Each task in ToolArena consists of:
    ```
 5. Install [Docker](https://docs.docker.com/desktop) and pull the latest ToolArena image:
    ```bash
-   docker pull ghcr.io/georg-wolflein/toolarena:cpu
-   docker pull ghcr.io/georg-wolflein/toolarena:cuda  # (only required if your task requires GPU)
+   docker pull ghcr.io/katherlab/toolarena:cpu
+   docker pull ghcr.io/katherlab/toolarena:cuda  # (only required if your task requires GPU)
    ```
 6. Create a `.env` file at the root of the repository (it can be empty for now):
    ```bash
@@ -338,9 +338,9 @@ pytest tasks/my_nifty_task
 ```
 
 ## 13. Submit a Pull Request!
-Nice work, you have successfully created a new task for the ToolArena benchmark. Now, open a [new Pull Request](https://github.com/georg-wolflein/ToolArena/pulls) on GitHub to submit this task!
+Nice work, you have successfully created a new task for the ToolArena benchmark. Now, open a [new Pull Request](https://github.com/KatherLab/ToolArena/pulls) on GitHub to submit this task!
 
-Check out [this PR](https://github.com/georg-wolflein/ToolArena/pull/1) as an example.
+Check out [this PR](https://github.com/KatherLab/ToolArena/pull/1) as an example.
 
 ## Tips and best practices
 
