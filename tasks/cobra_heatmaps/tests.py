@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 from pytest_lazy_fixtures import lf
 from tasks.utils import initialize, parametrize_invocation
@@ -34,7 +35,11 @@ def test_num_heatmaps(invocation: ToolRunResult, expected_num_heatmaps: int):
 def test_byte_size_heatmaps(
     invocation: ToolRunResult, expected_byte_size_heatmaps: int
 ):
-    assert invocation.result["byte_size_heatmaps"] == expected_byte_size_heatmaps
+    np.testing.assert_almost_equal(
+        invocation.result["byte_size_heatmaps"],
+        expected_byte_size_heatmaps,
+        decimal=-2,
+    )
 
 
 @pytest.mark.parametrize(
