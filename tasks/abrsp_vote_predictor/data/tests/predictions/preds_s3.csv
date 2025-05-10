@@ -1,0 +1,3 @@
+Sample,pred_class_f0,pred_class_f1,pred_class_f2,pred_class_f3,pred_class_f4,pred_class_f5,pred_class_f6,pred_class_f7,pred_class_f8,pred_class_f9,pred_class_aver
+TCGA-DD-AAEH-01Z-00-DX1.588C7665-65A3-43CF-B6AF-C78134667F81,Low,High,Low,Low,Low,High,Low,Low,Low,High,Low
+TCGA-DD-AAEA-01Z-00-DX1.FEE3F0DC-297E-405A-913F-899ADFC5B899,Low,High,Low,Low,Low,High,Low,Low,Low,High,Low
