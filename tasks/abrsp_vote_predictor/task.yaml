@@ -4,7 +4,7 @@ repo:
   url: "https://github.com/qinghezeng/ABRS-P" # URL of the repository.
   commit: 8ba3a7c # Commit hash of the repository (optional, default is the latest commit). It is recommended to use a specific commit to ensure reproducibility.
   # branch: main # Branch of the repository (optional)
-  # env:
+  env: []
     # Here, you can specify environment variables that should be available for installing the repository or running the task.
     # The format is key: value, where value is a string that can include variables from the local environment.
     # You may also leave this empty if the repository does not require any tokens/secrets.
@@ -13,56 +13,63 @@ papers: [zeng2023abrsp] # List of papers that this task is based on. Papers are 
 category: pathology # Category of the task.
 requires: cuda # If your task requires a GPU, change this to "cuda".
 description: To predict High or Low sensitivity to atezobev treatment using the ABRS-P biomarker model on externally treated patients, apply a fixed threshold to stratify the continuous model output (a non-negative score) into two groups for each fold, and then aggregate predictions across all ten folds using majority voting. # Description of the task. This should be 1-3 sentences in length, explaining to the LLM what this tool should do.
+description: >-
+  Predict binary sensitivity (High vs Low) to atezolizumab-bevacizumab with the 10-fold ABRS-P model: for each sample keep the ordered list of ten raw scores, apply the matching thresholds, count “High” votes, and assign High if ≥ 5, else Low (ties impossible).
 arguments:
-  # List of arguments of the task. Each argument is a dictionary with the keys "name", "description", and "type".
-  # For example, the following 3 lines define an argument "input_image" with a description "Path to the input image" and a type "str".
-  - name: input_dataset
-    description: dataset to test on
-    type: str  # supported types are "str", "int", "float", "bool", "list", "dict"
-  - name: dataset_csv_dir
-    description: Path to the sample info which are CSV files
-    type: str  # supported types are "str", "int", "float", "bool", "list", "dict"
-  - name: dataset_splits_dir
-    description: Path to the dataset splits which are CSV files (for external validation, always in test split)
-    type: str  # supported types are "str", "int", "float", "bool", "list", "dict"
-  - name: checkpoints_dir
-    description: Path to the ten fold checkpoints
-    type: str  # supported types are "str", "int", "float", "bool", "list", "dict"
-  - name: features_dir
-    description: Path to the input image features using cTransPath
-    type: str  # supported types are "str", "int", "float", "bool", "list", "dict"
-  - name: fixed_thresholds
-    description: Ten thresholds use to stratify the model output into two classes for each fold
-    type: list  # supported types are "str", "int", "float", "bool", "list", "dict"
-  # You may define more arguments as needed...
-returns:
-  # List of outputs of the task. Each output is a dictionary with the keys "name", "description", and "type".
-  # Here, we just define a single output "features", but you may define more as needed.
-  - name: predictions_file
-    description: Path to the predictions table where each row is a sample, and columns are predicted classes for the ten folds and the final class
+  - name: dataset_csv_file
+    description: >-
+      CSV that was used to train the checkpoints, listing every slide/patient to evaluate; must include `slide_id` and the column named by `label_col` (values are loaded but not used for prediction).
     type: str
+  - name: label_col
+    description: >-
+      Name of the expression column in `dataset_csv_file`, required only to satisfy the dataset API.
+    type: str
+  - name: dataset_splits_dir
+    description: >-
+      Directory with `splits_0.csv` … `splits_9.csv`; rows marked as `test` define which samples are processed for each fold.
+    type: str
+  - name: checkpoints_dir
+    description: >-
+      Directory containing the ten fold checkpoints `s_0_checkpoint.pt` … `s_9_checkpoint.pt`.
+    type: str
+  - name: features_dir
+    description: >-
+      Folder holding one CTransPath feature tensor (`.pt`) per `slide_id`.
+    type: str
+  - name: fixed_thresholds
+    description: >-
+      Ordered list of exactly ten floats used as fold-specific cut-offs to convert continuous scores to High/Low.
+    type: list
+  - name: output_predictions_file
+    description: >-
+      Destination CSV with columns `sample_id`, `fold_0` … `fold_9`, and the majority-voted `final`.
+    type: str
+returns:
+  - name: predictions
+    description: >-
+      List of dictionaries mirroring the rows of the output CSV (`sample_id`, `fold_0` … `fold_9`, `final`).
+    type: list
 example:
   # Below, we define an example invocation of the task, i.e. a specific input to the tool.
   # This section is required, and it consists of "arguments" and "mount" (see below).
   arguments:
     # For each input argument, specify the value to be used for the example invocation.
     # You must specify a "name" and a "value" for all arguments that are defined in the "arguments" section.
-    - name: input_dataset
-      value: s1
-    - name: dataset_csv_dir
-      value: /mount/input/dataset_csv
+    - name: dataset_csv_file
+      value: /mount/input/dataset_csv/myscore_s1.csv
+    - name: label_col
+      value: my_score
     - name: dataset_splits_dir
-      value: /mount/input/dataset_splits
+      value: /mount/input/dataset_splits/s1_100
     - name: checkpoints_dir
       value: /mount/input/10_fold_checkpoints
     - name: features_dir
       value: /mount/input/TCGA-LIHC-cTransPath-features-20x
     - name: fixed_thresholds
-      value: ["6.32", "5.14", "6.79", "5.88", "6.01", "5.49", "6.27", "5.62", "6.66", "5.36"]
+      value: [6.32, 5.14, 6.79, 5.88, 6.01, 5.49, 6.27, 5.62, 6.66, 5.36]
+    - name: output_predictions_file
+      value: /mount/output/predictions.csv
   mount:
-    # In this section, you can specify files or folders that should be mounted from the data directory to the container (at "/mount/input" in the container).
-    # Each mount is a dictionary with the keys "source" and "target", where "source" is the path to the file or folder in the data directory and "target" is the path to the file or folder in the container.
-    # For example, the following line mounts the file "TUM-TCGA-ACRLPPQE.tif" from the data directory to the container, placing it at the path "/mount/input/TUM-TCGA-ACRLPPQE.tif" in the container.
     - source: dataset_csv
       target: dataset_csv
     - source: dataset_splits
@@ -71,28 +78,23 @@ example:
       target: 10_fold_checkpoints
     - source: TCGA-LIHC-cTransPath-features-20x
       target: TCGA-LIHC-cTransPath-features-20x
-    - source: predictions
-      target: predictions
 test_invocations:
-  # Below, we define test invocations for the task.
-  # Each test invocation is a dictionary with the keys "name", "arguments", and "mount", like the example invocation above (with the addition of the "name" key).
-  # The test invocations can be used in the unit tests to check that the task is working as expected.
-  # Below, we define 3 test invocations for the task, named "tif", "png", and "jpg". 
-  # It is recommended that you define at least 3 test invocations (of course, you can choose any names you want).
   - name: s2
     arguments:
-      - name: input_dataset
-        value: s2
-      - name: dataset_csv_dir
-        value: /mount/input/dataset_csv
+      - name: dataset_csv_file
+        value: /mount/input/dataset_csv/myscore_s2.csv
+      - name: label_col
+        value: my_score
       - name: dataset_splits_dir
-        value: /mount/input/dataset_splits
+        value: /mount/input/dataset_splits/s2_100
       - name: checkpoints_dir
         value: /mount/input/10_fold_checkpoints
       - name: features_dir
         value: /mount/input/TCGA-LIHC-cTransPath-features-20x
       - name: fixed_thresholds
-        value: ["6.32", "5.14", "6.79", "5.88", "6.01", "5.49", "6.27", "5.62", "6.66", "5.36"]
+        value: [6.32, 5.14, 6.79, 5.88, 6.01, 5.49, 6.27, 5.62, 6.66, 5.36]
+      - name: output_predictions_file
+        value: /mount/output/predictions.csv
     mount:
       - source: dataset_csv
         target: dataset_csv
@@ -102,22 +104,22 @@ test_invocations:
         target: 10_fold_checkpoints
       - source: TCGA-LIHC-cTransPath-features-20x
         target: TCGA-LIHC-cTransPath-features-20x
-      - source: predictions
-        target: predictions
   - name: s3
     arguments:
-      - name: input_dataset
-        value: s3
-      - name: dataset_csv_dir
-        value: /mount/input/dataset_csv
+      - name: dataset_csv_file
+        value: /mount/input/dataset_csv/myscore_s3.csv
+      - name: label_col
+        value: my_score
       - name: dataset_splits_dir
-        value: /mount/input/dataset_splits
+        value: /mount/input/dataset_splits/s3_100
       - name: checkpoints_dir
         value: /mount/input/10_fold_checkpoints
       - name: features_dir
         value: /mount/input/TCGA-LIHC-cTransPath-features-20x
       - name: fixed_thresholds
-        value: ["6.32", "5.14", "6.79", "5.88", "6.01", "5.49", "6.27", "5.62", "6.66", "5.36"]
+        value: [6.32, 5.14, 6.79, 5.88, 6.01, 5.49, 6.27, 5.62, 6.66, 5.36]
+      - name: output_predictions_file
+        value: /mount/output/predictions.csv
     mount:
       - source: dataset_csv
         target: dataset_csv
@@ -127,22 +129,22 @@ test_invocations:
         target: 10_fold_checkpoints
       - source: TCGA-LIHC-cTransPath-features-20x
         target: TCGA-LIHC-cTransPath-features-20x
-      - source: predictions
-        target: predictions
   - name: s4
     arguments:
-      - name: input_dataset
-        value: s4
-      - name: dataset_csv_dir
-        value: /mount/input/dataset_csv
+      - name: dataset_csv_file
+        value: /mount/input/dataset_csv/myscore_s4.csv
+      - name: label_col
+        value: my_score
       - name: dataset_splits_dir
-        value: /mount/input/dataset_splits
+        value: /mount/input/dataset_splits/s4_100
       - name: checkpoints_dir
         value: /mount/input/10_fold_checkpoints
       - name: features_dir
         value: /mount/input/TCGA-LIHC-cTransPath-features-20x
       - name: fixed_thresholds
-        value: ["6.32", "5.14", "6.79", "5.88", "6.01", "5.49", "6.27", "5.62", "6.66", "5.36"]
+        value: [6.32, 5.14, 6.79, 5.88, 6.01, 5.49, 6.27, 5.62, 6.66, 5.36]
+      - name: output_predictions_file
+        value: /mount/output/predictions.csv
     mount:
       - source: dataset_csv
         target: dataset_csv
@@ -152,5 +154,3 @@ test_invocations:
         target: 10_fold_checkpoints
       - source: TCGA-LIHC-cTransPath-features-20x
         target: TCGA-LIHC-cTransPath-features-20x
-      - source: predictions
-        target: predictions
