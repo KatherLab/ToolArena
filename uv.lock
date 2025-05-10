@@ -1641,7 +1641,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "bibtexparser", specifier = ">=2.0.0b8" },
-    { name = "datasets", specifier = "==3.0.1" },
+    { name = "datasets", specifier = ">=3.0.1" },
     { name = "docker", specifier = ">=7.1.0" },
     { name = "fastapi", specifier = ">=0.115.11" },
     { name = "httpx", specifier = ">=0.28.1" },
