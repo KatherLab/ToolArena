@@ -1,4 +1,6 @@
-# ToolArena
+<div align="center">
+<h1>ToolArena</h1>
+</div>
 
 ToolArena is a **benchmark** for evaluating how well Large Language Model (LLM) agents can create "tools" from GitHub repositories. 
 Each *tool* (or *task*) corresponds to a Python function with defined inputs and outputs, wrapped in a containerised environment for reproducibility and testability.
