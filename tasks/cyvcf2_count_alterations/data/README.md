@@ -1,0 +1,1 @@
+The data is obtained from https://github.com/USDA-VS/vcf_test_files/blob/master/suis1_starting_files.zip.
