@@ -43,3 +43,10 @@ def candidate_impl_dir(request) -> Path:
     if not path.is_dir():
         raise ValueError(f"Candidate implementation directory does not exist: {path}")
     return path
+
+
+def pytest_collection_modifyitems(session, config, items):
+    for item in items:
+        for marker in item.iter_markers(name="tool_invocation"):
+            for key in ("tool", "invocation"):
+                item.user_properties.append((key, marker.kwargs[key]))

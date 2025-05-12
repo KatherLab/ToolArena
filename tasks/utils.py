@@ -22,10 +22,7 @@ def _invocation_fixture(
     tool_name: str,
     invocation: ToolInvocation,
     module: str,
-    prefix: str | None = None,
 ) -> InvocationFixture:
-    full_tool_name = f"{prefix}/{tool_name}" if prefix else tool_name
-
     def fixture(
         candidate_impl_dir: Path, request: pytest.FixtureRequest
     ) -> ToolRunResult:
@@ -41,12 +38,12 @@ def _invocation_fixture(
             and not runner.is_cached()
         ):
             pytest.skip(
-                f"Skipping uncached invocation {invocation.name} for {full_tool_name}"
+                f"Skipping uncached invocation {invocation.name} for {tool_name}"
             )
         return runner.run()
 
     fixture.__name__ = invocation.name
-    fixture.__doc__ = f"Test invocation {invocation.name} for {full_tool_name}."
+    fixture.__doc__ = f"Test invocation {invocation.name} for {tool_name}."
     fixture.__module__ = module
 
     return pytest.fixture(
@@ -57,12 +54,12 @@ def _invocation_fixture(
                 None,
                 marks=[
                     pytest.mark.tool_invocation(
-                        prefix=prefix, tool=tool_name, invocation=invocation.name
+                        tool=tool_name, invocation=invocation.name
                     )
                 ],
             )
         ],
-        ids=[full_tool_name],
+        ids=[tool_name],
     )
 
 
