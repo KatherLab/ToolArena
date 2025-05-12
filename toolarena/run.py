@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import tempfile
 from pathlib import Path
-from typing import Self
+from typing import Self, assert_never
 
 import dotenv
 import yaml
+from docker.errors import BuildError
 from docker.models.images import Image
 from loguru import logger
 from pydantic import BaseModel, ConfigDict
@@ -14,10 +16,13 @@ from pydantic import BaseModel, ConfigDict
 from toolarena.definition import ToolDefinition, ToolInvocation
 from toolarena.runtime import (
     DockerRuntimeClient,
+    FailedToolInstall,
     Mounts,
+    ToolInstallError,
     ToolResult,
     ToolRunResult,
     build_image,
+    cached_tool_result_adapter,
 )
 from toolarena.utils import RUNS_DIR
 
@@ -39,11 +44,24 @@ def build_tool(
         temp_dir_path.joinpath(".env").touch()
         for key, value in environment.items():
             dotenv.set_key(temp_dir_path / ".env", key, value)
-        image, logs = build_image(
-            tag=definition.name,
-            context=temp_dir_path,
-            buildargs={"TAG": definition.requires},  # will build CUDA image if required
-        )
+        try:
+            image, logs = build_image(
+                tag=definition.name,
+                context=temp_dir_path,
+                buildargs={
+                    "TAG": definition.requires
+                },  # will build CUDA image if required
+            )
+        except BuildError as e:
+            if ">>>START INSTALL<<<" in e.msg and "returned a non-zero code" in e.msg:
+                raise ToolInstallError(
+                    message=f"Failed to install {definition.name}. {e.msg}",
+                    build_log="".join(
+                        chunk.get("stream", "") + chunk.get("error", "")
+                        for chunk in e.build_log
+                    ),
+                )
+            raise
         return ToolImplementation(
             definition=definition,
             image=image,
@@ -103,7 +121,18 @@ class ToolRunner(BaseModel):
         )
 
     def hash(self) -> str:
-        return hashlib.sha256(self.model_dump_json().encode("utf-8")).hexdigest()
+        return hashlib.sha256(
+            json.dumps(
+                {
+                    "definition": self.definition.model_dump(),
+                    "invocation": self.invocation.model_dump(),
+                    "data_dir": str(self.data_dir.resolve().absolute()),
+                    "install_script": self.install_script,
+                    "code_implementation": self.code_implementation,
+                },
+                sort_keys=True,
+            ).encode("utf-8")
+        ).hexdigest()
 
     @property
     def run_dir(self) -> Path:
@@ -154,11 +183,14 @@ class ToolRunner(BaseModel):
         """Build image and run tool, using cache if available."""
         if self.is_cached():
             return self.read_cache()
-        result = self.run_without_cache(image)
+        try:
+            result = self.run_without_cache(image)
+        except ToolInstallError as e:
+            result = FailedToolInstall.from_exception(e)
         self.write_cache(result)
         return self.read_cache()
 
-    def write_cache(self, result: ToolResult):
+    def write_cache(self, result: ToolResult | FailedToolInstall):
         self.run_dir.mkdir(parents=True, exist_ok=True)
         self.cache_file.write_text(result.model_dump_json(indent=2))
         self.run_dir.joinpath("install.sh").write_text(self.install_script)
@@ -171,10 +203,13 @@ class ToolRunner(BaseModel):
         logger.debug(
             f"Retrieving cached result for {self.definition.name} at {self.cache_file}"
         )
-        return ToolRunResult(
-            **ToolResult.model_validate_json(self.cache_file.read_text()).model_dump(),
-            output_dir=self.output_dir,
-        )
+        match cached_tool_result_adapter.validate_json(self.cache_file.read_text()):
+            case FailedToolInstall() as err:
+                raise err.to_exception()
+            case ToolResult() as result:
+                return ToolRunResult(**result.model_dump(), output_dir=self.output_dir)
+            case _ as unreachable:
+                assert_never(unreachable)
 
     def is_cached(self) -> bool:
         return self.cache_file.exists()

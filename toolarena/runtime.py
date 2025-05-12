@@ -8,7 +8,7 @@ import sys
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Final, Iterator, Literal, Self, Sequence, cast
+from typing import Annotated, Any, Final, Iterator, Literal, Self, Sequence, cast
 
 import docker
 import httpx
@@ -21,7 +21,7 @@ from docker.types import DeviceRequest
 from docker.types import Mount as DockerMount
 from docker.utils.json_stream import json_stream
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, TypeAdapter
 
 from toolarena.definition import ArgumentType, Mount
 from toolarena.utils import ROOT_DIR, join_paths, rmdir
@@ -31,10 +31,26 @@ DEFAULT_TOOL_IMAGE_NAME: Final[str] = "toolarena-tool"
 DOCKER_CONTAINER_PORT: Final[str] = "8000/tcp"
 
 
+@dataclass
+class ToolInstallError(Exception):
+    """Raised when the tool installation fails due to an error in the install.sh script."""
+
+    message: str
+    build_log: str
+
+    def __str__(self) -> str:
+        return (
+            self.message
+            + "\nNote: this may be a cached exception -- clear the cache if you are unsure..."
+            + f"\nBuild log:\n{self.build_log}"
+        )
+
+
 class ToolResult(BaseModel):
     return_code: int
     result: Any
     stdout: str
+    type: Literal["result"] = "result"
 
     @property
     def status(self) -> Literal["success", "failure"]:
@@ -43,6 +59,25 @@ class ToolResult(BaseModel):
 
 class ToolRunResult(ToolResult):
     output_dir: Path
+
+
+class FailedToolInstall(BaseModel):
+    message: str
+    build_log: str
+    type: Literal["failed_tool_install"] = "failed_tool_install"
+
+    @classmethod
+    def from_exception(cls, e: ToolInstallError) -> Self:
+        return cls(message=e.message, build_log=e.build_log)
+
+    def to_exception(self) -> ToolInstallError:
+        return ToolInstallError(self.message, self.build_log)
+
+
+CachedToolResult = Annotated[
+    ToolResult | FailedToolInstall, Field(discriminator="type")
+]
+cached_tool_result_adapter = TypeAdapter(CachedToolResult)
 
 
 @dataclass(frozen=True, kw_only=True)
