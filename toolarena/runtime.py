@@ -214,7 +214,10 @@ def build_image(
     )
 
     if isinstance(resp, str):
-        return get_docker().images.get(resp)
+        # The low-level API may return the image ID as a string when
+        # `resp` is not a generator. In this case no build logs are
+        # available, so return an empty iterator for the log stream.
+        return get_docker().images.get(resp), iter(())
     last_event = None
     image_id = None
     internal_stream, result_stream = itertools.tee(json_stream(resp))
